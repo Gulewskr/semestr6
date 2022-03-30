@@ -95,26 +95,19 @@ it_is(road_vehicle) :-
 positive(X,Y) :-
     xpositive(X,Y),!.
 positive(X,Y) :-
-    not(xnegative(X,Y)) ,
-    ask(X,Y,yes).
+    not(xnegative(X,Y)),
+    ask(X,Y).
 negative(X,Y) :-
     xnegative(X,Y),!.
 negative(X,Y) :-
-    not(xpositive(X,Y)) ,
-    ask(X,Y,no).
+    not(xpositive(X,Y)),
+    ask(X,Y).
 
 %4. Zadawanie pytań użytkownikowi
-ask(X,Y,yes) :-
+ask(X,Y) :-
     write(X), write(' it '),write(Y), write('\n'),
     read(Reply),
-    sub_string(Reply,0,1,_,'y'),!,
-    remember(X,Y,yes).
-
-ask(X,Y,no) :-
-    write(X), write(' it '),write(Y), write('\n'),
-    read(Reply),
-    sub_string(Reply,0,1,_, 'n'),!,
-    remember(X,Y,no).
+    (sub_string(Reply,0,1,_,'y'), remember(X,Y,yes)) ; (remember(X,Y,no), fail).
 
 %5. Zapamiętanie odpowiedzi w dynamicznej bazie
 remember(X,Y,yes) :-
