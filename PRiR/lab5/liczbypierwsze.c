@@ -1,4 +1,4 @@
-#include <stdio.h>
+include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <omp.h>
@@ -28,16 +28,16 @@ int main(int argc, char **argv)
 		- mierzenie czasu będzie trzeba dodać to pewnie jutro albo wieczorem jak przetestuje czy działa
 */
 	omp_set_num_threads(numberOfThreads);
-#pragma omp parallel 
+#pragma omp parallel shared(a, pierwsze, llpier)
 {
 	// część 1 wyznaczenie liczb pierwszych z przedziału 2 ... (int)sqrt(N)
 	// inicjowanie
-	#pragma omp for shared(a) private(i) schedule(dynamic)
+	#pragma omp for private(i) schedule(dynamic)
 	for (i = 2; i <= S; i++)
 		a[i] = 1;
 
 	// wykreślenie
-	#pragma omp for shared(a, pierwsze, llpier) private(i, k) schedule(dynamic)
+	#pragma omp for private(i, k) schedule(dynamic)
 	for (i = 2; i <= S; i++)
 		if (a[i] == 1)
 		{
@@ -52,7 +52,7 @@ int main(int argc, char **argv)
 	lpodz = llpier; /*zapamietanie liczby podzielnikow*/
 	
 	//część 2 wyznaczenie liczb pierwszych z przedziału 2 ... (int)sqrt(N)
-	#pragma omp for shared(pierwsze, llpier) private(liczba, reszta, k) schedule(dynamic)
+	#pragma omp for private(liczba, reszta, k) schedule(dynamic)
 	for (liczba = S + 1; liczba <= N; liczba++)
 	{
 		for (k = 0; k < lpodz; k++)
