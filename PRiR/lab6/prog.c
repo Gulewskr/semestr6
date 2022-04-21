@@ -1,4 +1,4 @@
-include <mpi.h>
+#include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -21,7 +21,9 @@ double integrate(double (*func)(double), double begin, double end, int num_point
 }
 
 int main(int argc, char** argv) {
-       
+
+    double b = 0, e = 0;
+    int sn = 0, world_size, world_rank;
     double (*fun_ptr)(double) = &funcX;
     
     if (argc < 4)
@@ -29,44 +31,38 @@ int main(int argc, char** argv) {
         printf("nie podano argumentów(doble) begin(doble) end(int) step_number\n");
         return -1;
     }
-
     double begin = atof(argv[1]);
     double end = atof(argv[2]);
     int steps = atoi(argv[3]);
 
-    // Initialize the MPI environment
+    //MPI INICJALIZACJA
     MPI_Init(NULL, NULL);
-
-    // Get the number of processes
-    int world_size;
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
-
-    // Get the rank of the process
-    int world_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+    if(world_size < 2)
+    {
+        MPI_Finalize();
+        printf("Program wymaga użycia co najmniej 2 procesów. ILOSC: %d\n", world_size);
+        return -1;
+    }
 
-    // Get the name of the processor
-    char processor_name[MPI_MAX_PROCESSOR_NAME];
-    int name_len;
-    MPI_Get_processor_name(processor_name, &name_len);
-
-    // Print off a hello world message
-    //printf("Hello world from processor %s, rank %d out of %d processors\n",
-    //    processor_name, world_rank, world_size);
+    double integral_current = 0;
+    double integral = 0;                                                
+    int workers_number = world_size - 1;
 
     if (world_rank == 0) 
     {
-        int rest = steps % world_size;
+        int rest = steps % workers_number;
         double dx = (end - begin) / steps;
+        //wyliczenie i przeslanie argumentow do procesow liczacych
         for (int i = 1; i < world_size; i++)
         {
-            double b, e;
-            int sn = steps / world_size;
+            sn = steps / workers_number;
             if (i == 1) {
                 b = begin;
                 sn += rest;
             } else {
-                b = begin + dx * (i * sn + rest);
+                b = begin + dx * ((i-1) * sn + rest);
             }
             e = b + dx * sn;
 
@@ -74,34 +70,30 @@ int main(int argc, char** argv) {
             MPI_Send(&e, 1, MPI_DOUBLE, i, 0, MPI_COMM_WORLD);
             MPI_Send(&sn, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
         }
-        /*
-        MPI_Recv(&token, 1, MPI_INT, world_rank - 1, 0,
-            MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        printf("Process %d received token %d from process %d\n",
-            world_rank, token, world_rank - 1);
-        */
+
+        //zliczenie wynikow
+        for(int i = 1; i < world_size; i++)
+        {
+            MPI_Recv(&integral_current, 1, MPI_DOUBLE, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            integral += integral_current;
+            printf("Wynik: %f procesu from process %d\n", integral_current, i);
+        }
+        printf("Wynik: %f \n", integral);
+    
+        //Dla pojedynczego procesu
+        //double res = integrate(fun_ptr, begin, end, steps);
+        //printf("Wynik sprawdzony dla 1 wątku %f\n\n", res);
     }
     else {
-        // Set the token's value if you are process 0
-        /*
-        token = -1;
-        */
+        //otrzymanie parametrow z procesu 0
+        MPI_Recv(&b, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&e, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&sn, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        //obliczenie
+        integral_current = integrate(fun_ptr, b, e, sn);
+        //przeslanie wyniku do procesu 0
+        MPI_Send(&integral_current, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
     }
-    
 
-    /*
-// Now process 0 can receive from the last process.
-    if (world_rank == 0) {
-        MPI_Recv(&token, 1, MPI_INT, world_size - 1, 0,
-            MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        printf("Process %d received token %d from process %d\n",
-            world_rank, token, world_size - 1);
-    }
-    */
-
-    double res = integrate(fun_ptr, begin, end, steps);
-    printf("%f", res);
-
-    // Finalize the MPI environment.
     MPI_Finalize();
 }
